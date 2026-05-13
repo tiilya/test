@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apple Loading Preview</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    #loading-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 48px;
+      transition: opacity 0.7s ease-out;
+    }
+
+    #loading-screen.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .apple-container {
+      position: relative;
+      width: 260px;
+      height: 260px;
+    }
+
+    .apple-container img {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    #apple-color {
+      /* clip-path reveals from bottom to top */
+      clip-path: inset(100% 0 0 0);
+      transition: none;
+    }
+
+    #load-btn {
+      background: #D94F3D;
+      color: #fff;
+      border: none;
+      padding: 16px 40px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: opacity 0.3s;
+    }
+
+    #load-btn:hover { opacity: 0.85; }
+    #load-btn:disabled { opacity: 0; pointer-events: none; }
+
+    #main-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    #main-screen.visible { display: flex; }
+
+    #main-screen img {
+      width: 200px;
+      height: 200px;
+      object-fit: contain;
+    }
+
+    #main-screen h1 {
+      font-size: 28px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    #restart-btn {
+      background: none;
+      border: 2px solid #D94F3D;
+      color: #D94F3D;
+      padding: 12px 32px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    #restart-btn:hover {
+      background: #D94F3D;
+      color: #fff;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="apple-container">
+    <img id="apple-bw"    src="../assets/apple_bw.png"    alt="apple bw">
+    <img id="apple-color" src="../assets/apple_color.png" alt="apple color">
+  </div>
+  <button id="load-btn">Загрузить данные</button>
+</div>
+
+<div id="main-screen">
+  <img src="../assets/apple_color.png" alt="apple">
+  <h1>Данные загружены!</h1>
+  <button id="restart-btn">Попробовать снова</button>
+</div>
+
+<script>
+  const DURATION = 3000; // ms — длительность анимации заполнения
+  const FADE_DURATION = 700; // ms — длительность fade-out
+
+  const loadBtn      = document.getElementById('load-btn');
+  const loadScreen   = document.getElementById('loading-screen');
+  const mainScreen   = document.getElementById('main-screen');
+  const appleColor   = document.getElementById('apple-color');
+  const restartBtn   = document.getElementById('restart-btn');
+
+  function easeInOut(t) {
+    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+  }
+
+  function startLoading() {
+    loadBtn.disabled = true;
+
+    const startTime = performance.now();
+
+    function animate(now) {
+      const elapsed = now - startTime;
+      const rawProgress = Math.min(elapsed / DURATION, 1);
+      const progress = easeInOut(rawProgress);
+
+      // reveal from bottom: inset(top right bottom left)
+      const topInset = (1 - progress) * 100;
+      appleColor.style.clipPath = `inset(${topInset}% 0 0 0)`;
+
+      if (rawProgress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // small pause then fade out
+        setTimeout(() => {
+          loadScreen.classList.add('fade-out');
+          setTimeout(() => {
+            loadScreen.style.display = 'none';
+            mainScreen.classList.add('visible');
+          }, FADE_DURATION);
+        }, 300);
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  function restart() {
+    appleColor.style.clipPath = 'inset(100% 0 0 0)';
+    loadBtn.disabled = false;
+    loadScreen.style.display = 'flex';
+    loadScreen.style.opacity = '1';
+    loadScreen.classList.remove('fade-out');
+    mainScreen.classList.remove('visible');
+  }
+
+  loadBtn.addEventListener('click', startLoading);
+  restartBtn.addEventListener('click', restart);
+</script>
+</body>
+</html>

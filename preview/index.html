@@ -43,10 +43,36 @@
       object-fit: contain;
     }
 
+    /*
+      Shimmer: the color apple is masked by a diagonal gradient stripe
+      that sweeps from left to right in a loop.
+      mask-size is 300% so the stripe travels fully across the image.
+    */
     #apple-color {
-      /* clip-path reveals from bottom to top */
-      clip-path: inset(100% 0 0 0);
-      transition: none;
+      -webkit-mask-image: linear-gradient(
+        110deg,
+        transparent 20%,
+        white       40%,
+        white       60%,
+        transparent 80%
+      );
+      mask-image: linear-gradient(
+        110deg,
+        transparent 20%,
+        white       40%,
+        white       60%,
+        transparent 80%
+      );
+      -webkit-mask-size: 300% 100%;
+      mask-size: 300% 100%;
+      -webkit-mask-position: -150% 0;
+      mask-position: -150% 0;
+      animation: shimmer 2s infinite linear;
+    }
+
+    @keyframes shimmer {
+      0%   { -webkit-mask-position: -150% 0; mask-position: -150% 0; }
+      100% { -webkit-mask-position:  150% 0; mask-position:  150% 0; }
     }
 
     #load-btn {
@@ -62,7 +88,7 @@
     }
 
     #load-btn:hover { opacity: 0.85; }
-    #load-btn:disabled { opacity: 0; pointer-events: none; }
+    #load-btn.hidden { opacity: 0; pointer-events: none; }
 
     #main-screen {
       display: none;
@@ -126,53 +152,28 @@
 </div>
 
 <script>
-  const DURATION = 3000; // ms — длительность анимации заполнения
-  const FADE_DURATION = 700; // ms — длительность fade-out
+  const FAKE_LOAD_MS  = 4000; // имитация загрузки — 4 секунды
+  const FADE_DURATION = 700;
 
-  const loadBtn      = document.getElementById('load-btn');
-  const loadScreen   = document.getElementById('loading-screen');
-  const mainScreen   = document.getElementById('main-screen');
-  const appleColor   = document.getElementById('apple-color');
-  const restartBtn   = document.getElementById('restart-btn');
-
-  function easeInOut(t) {
-    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-  }
+  const loadBtn    = document.getElementById('load-btn');
+  const loadScreen = document.getElementById('loading-screen');
+  const mainScreen = document.getElementById('main-screen');
+  const restartBtn = document.getElementById('restart-btn');
 
   function startLoading() {
-    loadBtn.disabled = true;
+    loadBtn.classList.add('hidden');
 
-    const startTime = performance.now();
-
-    function animate(now) {
-      const elapsed = now - startTime;
-      const rawProgress = Math.min(elapsed / DURATION, 1);
-      const progress = easeInOut(rawProgress);
-
-      // reveal from bottom: inset(top right bottom left)
-      const topInset = (1 - progress) * 100;
-      appleColor.style.clipPath = `inset(${topInset}% 0 0 0)`;
-
-      if (rawProgress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        // small pause then fade out
-        setTimeout(() => {
-          loadScreen.classList.add('fade-out');
-          setTimeout(() => {
-            loadScreen.style.display = 'none';
-            mainScreen.classList.add('visible');
-          }, FADE_DURATION);
-        }, 300);
-      }
-    }
-
-    requestAnimationFrame(animate);
+    setTimeout(() => {
+      loadScreen.classList.add('fade-out');
+      setTimeout(() => {
+        loadScreen.style.display = 'none';
+        mainScreen.classList.add('visible');
+      }, FADE_DURATION);
+    }, FAKE_LOAD_MS);
   }
 
   function restart() {
-    appleColor.style.clipPath = 'inset(100% 0 0 0)';
-    loadBtn.disabled = false;
+    loadBtn.classList.remove('hidden');
     loadScreen.style.display = 'flex';
     loadScreen.style.opacity = '1';
     loadScreen.classList.remove('fade-out');

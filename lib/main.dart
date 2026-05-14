@@ -32,9 +32,7 @@ class _AppNavigatorState extends State<AppNavigator> {
   bool _showMainScreen = false;
 
   void _onLoadingComplete() {
-    setState(() {
-      _showMainScreen = true;
-    });
+    setState(() => _showMainScreen = true);
   }
 
   @override
@@ -58,9 +56,8 @@ class LoadingScreen extends StatefulWidget {
 
 class _LoadingScreenState extends State<LoadingScreen>
     with TickerProviderStateMixin {
-  late final AnimationController _fillController;
+  late final AnimationController _shimmerController;
   late final AnimationController _fadeController;
-  late final Animation<double> _fillAnimation;
   late final Animation<double> _fadeAnimation;
 
   bool _isLoading = false;
@@ -69,39 +66,25 @@ class _LoadingScreenState extends State<LoadingScreen>
   void initState() {
     super.initState();
 
-    _fillController = AnimationController(
+    // Looping shimmer — sweeps continuously while loading
+    _shimmerController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
-    );
+      duration: const Duration(milliseconds: 1800),
+    )..repeat();
 
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
     );
 
-    _fillAnimation = CurvedAnimation(
-      parent: _fillController,
-      curve: Curves.easeInOut,
-    );
-
     _fadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
     );
-
-    _fillController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          _fadeController.forward().then((_) {
-            widget.onLoadingComplete();
-          });
-        });
-      }
-    });
   }
 
   @override
   void dispose() {
-    _fillController.dispose();
+    _shimmerController.dispose();
     _fadeController.dispose();
     super.dispose();
   }
@@ -109,7 +92,11 @@ class _LoadingScreenState extends State<LoadingScreen>
   void _startLoading() {
     if (_isLoading) return;
     setState(() => _isLoading = true);
-    _fillController.forward(from: 0.0);
+
+    // Simulate network request — replace with real Future
+    Future.delayed(const Duration(seconds: 4), () {
+      _fadeController.forward().then((_) => widget.onLoadingComplete());
+    });
   }
 
   @override
@@ -122,7 +109,7 @@ class _LoadingScreenState extends State<LoadingScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _AppleProgressWidget(fillAnimation: _fillAnimation),
+              _AppleShimmerWidget(shimmerController: _shimmerController),
               const SizedBox(height: 48),
               AnimatedOpacity(
                 opacity: _isLoading ? 0.0 : 1.0,
@@ -152,35 +139,52 @@ class _LoadingScreenState extends State<LoadingScreen>
   }
 }
 
-// ─── Apple Widget ─────────────────────────────────────────────────────────────
+// ─── Apple Shimmer Widget ─────────────────────────────────────────────────────
 
-class _AppleProgressWidget extends StatelessWidget {
-  final Animation<double> fillAnimation;
+class _AppleShimmerWidget extends StatelessWidget {
+  final AnimationController shimmerController;
 
-  const _AppleProgressWidget({required this.fillAnimation});
+  const _AppleShimmerWidget({required this.shimmerController});
 
   @override
   Widget build(BuildContext context) {
     const double size = 260;
 
     return AnimatedBuilder(
-      animation: fillAnimation,
+      animation: shimmerController,
       builder: (context, _) {
+        // t goes -0.5 → 1.5 so the stripe fully enters and exits the image
+        final double t = shimmerController.value * 2 - 0.5;
+
         return SizedBox(
           width: size,
           height: size,
           child: Stack(
             children: [
-              // Black & white apple (always visible underneath)
+              // BW apple — always visible underneath
               Image.asset(
                 'assets/apple_bw.png',
                 width: size,
                 height: size,
                 fit: BoxFit.contain,
               ),
-              // Color apple revealed from bottom to top
-              ClipRect(
-                clipper: _BottomUpClipper(fillAnimation.value),
+              // Color apple masked to a diagonal shimmer stripe
+              ShaderMask(
+                blendMode: BlendMode.dstIn,
+                shaderCallback: (Rect bounds) {
+                  return LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    transform: _DiagonalGradientTransform(t),
+                    colors: const [
+                      Colors.transparent,
+                      Colors.white,
+                      Colors.white,
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.3, 0.7, 1.0],
+                  ).createShader(bounds);
+                },
                 child: Image.asset(
                   'assets/apple_color.png',
                   width: size,
@@ -196,24 +200,17 @@ class _AppleProgressWidget extends StatelessWidget {
   }
 }
 
-class _BottomUpClipper extends CustomClipper<Rect> {
-  final double progress;
+// Shifts the gradient horizontally so the stripe sweeps across the image
+class _DiagonalGradientTransform extends GradientTransform {
+  final double t; // -0.5 … 1.5
 
-  _BottomUpClipper(this.progress);
+  const _DiagonalGradientTransform(this.t);
 
   @override
-  Rect getClip(Size size) {
-    final double revealedHeight = size.height * progress;
-    return Rect.fromLTRB(
-      0,
-      size.height - revealedHeight,
-      size.width,
-      size.height,
-    );
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
+    final double dx = (t - 0.5) * bounds.width * 2;
+    return Matrix4.translationValues(dx, 0, 0);
   }
-
-  @override
-  bool shouldReclip(_BottomUpClipper old) => old.progress != progress;
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
